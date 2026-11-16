@@ -1,7 +1,8 @@
 # pure-tcl-aws-core
 
 Shared AWS client infrastructure for Tcl 9.1: HTTP sessions, credentials,
-SigV4 configuration, presigned URLs, JSON, Query/XML and structured errors.
+AWS Signature Version 4 (SigV4) configuration, presigned URLs, JSON, Query/XML
+and structured errors.
 The implementation is Tcl; its HTTP, JSON and XML dependencies contain native
 code. No AWS C++ SDK or AWS CRT package is required.
 
