@@ -1,0 +1,121 @@
+# 
+# Copyright Jerily LTD. All Rights Reserved.
+# SPDX-FileCopyrightText: 2026 Neofytos Dimitriou (neo@jerily.cy)
+# SPDX-License-Identifier: MIT.
+# 
+
+package require tcltest 2
+namespace import ::tcltest::test
+lappend ::auto_path [file dirname [file dirname [file normalize [info script]]]]
+package require pure-tcl-aws-core 0.1.0
+set endpoint [lindex $argv 0]
+set argv {}
+set config [dict create region us-east-1 endpoint $endpoint aws_access_key_id test aws_secret_access_key test aws_session_token temporary-token retry_base_ms 0]
+set c [::aws::core::Client new ssm $config]
+
+test signature-vector {S3 presigning matches AWS's published example} -body {
+    set credentials {aws_access_key_id AKIAIOSFODNN7EXAMPLE aws_secret_access_key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY}
+    set url [::aws::core::presign GET https://examplebucket.s3.amazonaws.com/test.txt us-east-1 s3 $credentials 86400 1369353600]
+    lindex [split $url =] end
+} -result aeeed9bbccd4d02ee5c0109b86d86835f995330da4c265957d157751f604d404
+
+test encoding-uri {URI encoding operates on UTF-8 bytes} -body {
+    ::aws::core::uri "a +/雪😀"
+} -result a%20%2B%2F%E9%9B%AA%F0%9F%98%80
+
+test encoding-xml {namespaced XML preserves Unicode beyond the BMP} -body {
+    set doc [::aws::core::xml [encoding convertto utf-8 {<r xmlns="urn:test"><x>café 😀</x></r>}]]
+    try {::aws::core::xget [$doc documentElement] x} finally {$doc delete}
+} -result {café 😀}
+
+test retry-throttling {safe requests retry throttling with a bounded attempt count} -body {
+    dict get [::aws::core::json $c Test.Retry {} 1.1 1] attempts
+} -result 3
+
+test retry-once {mutating requests do not retry ambiguous failures} -body {
+    catch {::aws::core::json $c Test.Once {}} message opts
+    list $message [dict get $opts -errorcode]
+} -result {once {AWS SSM ServiceUnavailable}}
+
+# Supply refreshed temporary credentials after the first authentication failure.
+proc rotating_credentials {} {
+    incr ::credential_calls
+    dict create aws_access_key_id test aws_secret_access_key test aws_session_token [expr {$::credential_calls == 1 ? "old" : "new"}]
+}
+test credentials-refresh {expired credentials are replaced before a safe retry} -body {
+    set credential_calls 0
+    set client [::aws::core::Client new ssm [dict create region us-east-1 endpoint $endpoint credentials_provider rotating_credentials retry_base_ms 0]]
+    try {
+        set r [::aws::core::json $client Test.Refresh {} 1.1 1]
+        list [dict get $r attempts] $credential_calls
+    } finally {$client destroy}
+} -result {2 2}
+
+test credentials-expired {expired provider results are rejected locally} -body {
+    catch {::aws::core::normalize_credentials {AccessKeyId test SecretAccessKey test Expiration 1}}
+} -result 1
+
+test metadata-uri {plaintext remote container endpoints are rejected} -body {
+    list [catch {::aws::core::container_url http://example.com/credentials}] [::aws::core::container_url https://example.com/credentials]
+} -result {1 https://example.com/credentials}
+
+set saved [array get ::env AWS_*]
+foreach key [array names ::env AWS_*] {unset ::env($key)}
+set f [file tempfile profilefile]
+puts $f {[default]
+aws_access_key_id = test
+aws_secret_access_key = test
+[role]
+role_arn = arn:aws:iam::123:role/test
+source_profile = default
+[cycle]
+role_arn = arn:aws:iam::123:role/test
+source_profile = cycle}
+close $f
+set cfg [dict create region us-east-1 config_file /nonexistent/pure-tcl-aws credentials_file $profilefile metadata_disabled true]
+try {
+    test credentials-profile {static profiles use the requested files} -body {
+        dict get [::aws::core::credentials $cfg] aws_access_key_id
+    } -result test
+    test credentials-environment {environment credentials take precedence over profiles} -body {
+        set ::env(AWS_ACCESS_KEY_ID) envkey; set ::env(AWS_SECRET_ACCESS_KEY) envsecret
+        try {dict get [::aws::core::credentials $cfg] aws_access_key_id} finally {unset ::env(AWS_ACCESS_KEY_ID) ::env(AWS_SECRET_ACCESS_KEY)}
+    } -result envkey
+    test credentials-cycle {profile cycles fail before networking} -body {
+        catch {::aws::core::credentials [dict replace $cfg profile cycle]} msg
+        set msg
+    } -result {cyclic AWS source_profile chain}
+    test credentials-imds {IMDSv2 obtains and uses its metadata token} -body {
+        dict get [::aws::core::credentials [dict replace $cfg profile missing metadata_disabled false metadata_endpoint $endpoint]] aws_session_token
+    } -result metadata-token
+    test credentials-container {container credentials include the authorization token} -body {
+        set ::env(AWS_CONTAINER_CREDENTIALS_FULL_URI) $endpoint/container
+        set ::env(AWS_CONTAINER_AUTHORIZATION_TOKEN) container-token
+        try {dict get [::aws::core::credentials [dict replace $cfg profile missing]] aws_session_token} finally {unset ::env(AWS_CONTAINER_CREDENTIALS_FULL_URI) ::env(AWS_CONTAINER_AUTHORIZATION_TOKEN)}
+    } -result metadata-token
+    rename ::aws::core::endpoint ::aws::core::default_endpoint
+    # Redirect only STS exchanges to the local fixture.
+    proc ::aws::core::endpoint {service region} {
+        if {$service eq "sts"} {return $::endpoint/sts}
+        default_endpoint $service $region
+    }
+    test credentials-assume-role {source profiles sign the STS exchange} -body {
+        dict get [::aws::core::credentials [dict replace $cfg profile role]] aws_session_token
+    } -result role-token
+    test credentials-web-identity {web identity exchanges do not require source credentials} -body {
+        set token [file tempfile tokenfile]; puts -nonewline $token web-token; close $token
+        set ::env(AWS_ROLE_ARN) arn:aws:iam::123:role/test
+        set ::env(AWS_WEB_IDENTITY_TOKEN_FILE) $tokenfile
+        try {dict get [::aws::core::credentials $cfg] aws_session_token} finally {file delete $tokenfile; unset ::env(AWS_ROLE_ARN) ::env(AWS_WEB_IDENTITY_TOKEN_FILE)}
+    } -result role-token
+    rename ::aws::core::endpoint {}
+    rename ::aws::core::default_endpoint ::aws::core::endpoint
+} finally {
+    file delete $profilefile
+    foreach key [array names ::env AWS_*] {unset ::env($key)}
+    array set ::env $saved
+}
+$c destroy
+set failed $::tcltest::numTests(Failed)
+::tcltest::cleanupTests
+exit [expr {$failed > 0}]
