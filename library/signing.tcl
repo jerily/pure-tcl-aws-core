@@ -7,7 +7,7 @@
 # Derive the four-stage SigV4 signing key as raw bytes.
 proc ::aws::core::signing_key {secret date region service} {
     set key [encoding convertto utf-8 AWS4$secret]
-    foreach value [list $date $region $service aws4_request] {set key [::sha2::hmac -bin -key $key -- $value]}
+    foreach value [list $date $region $service aws4_request] {set key [::thashlib::hmac_sha256 $key $value]}
     return $key
 }
 
@@ -28,7 +28,9 @@ proc ::aws::core::presign {method url region service credentials expires {now {}
     set qs [querystring $pairs]
     set host [string tolower [dict get $p authority]]
     set canonical "$method\n[dict get $p path]\n$qs\nhost:$host\n\nhost\nUNSIGNED-PAYLOAD"
-    set sign "AWS4-HMAC-SHA256\n$timestamp\n$scope\n[::sha2::sha256 -hex -- [encoding convertto utf-8 $canonical]]"
-    set signature [::sha2::hmac -hex -key [signing_key [dict get $credentials aws_secret_access_key] $date $region $service] -- $sign]
+    set hash [::thashlib::sha256 -hex [encoding convertto utf-8 $canonical]]
+    set sign "AWS4-HMAC-SHA256\n$timestamp\n$scope\n$hash"
+    set key [signing_key [dict get $credentials aws_secret_access_key] $date $region $service]
+    set signature [::thashlib::hmac_sha256 -hex $key $sign]
     return "$url?$qs&X-Amz-Signature=$signature"
 }

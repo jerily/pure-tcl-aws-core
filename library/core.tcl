@@ -8,11 +8,10 @@ package require Tcl 9.1
 package require trequests 1.3
 package require tjson 1.0.27
 package require tdom 0.9
-package require sha256
-package require md5
+package require thashlib 0.1.0
 
 namespace eval ::aws::core {
-    variable version 0.1.0
+    variable version 1.0.0
     variable labels {s3 S3 sqs SQS dynamodb DynamoDB lambda Lambda iam IAM ssm SSM kms KMS ses SES sts STS}
 }
 # Return a dictionary value or a caller-supplied default.
@@ -276,4 +275,4 @@ proc ::aws::core::next {seenVar token} {
 }
 source [file join [file dirname [info script]] credentials.tcl]
 source [file join [file dirname [info script]] signing.tcl]
-package provide pure-tcl-aws-core 0.1.0
+package provide pure-tcl-aws-core 1.0.0

@@ -3,7 +3,7 @@
 Shared AWS client infrastructure for Tcl 9.1: HTTP sessions, credentials,
 AWS Signature Version 4 (SigV4) configuration, presigned URLs, JSON, Query/XML
 and structured errors.
-The implementation is Tcl; its HTTP, JSON and XML dependencies contain native
+The implementation is Tcl; its HTTP, JSON, XML and hashing dependencies contain native
 code. No AWS C++ SDK or AWS CRT package is required.
 
 ## Packages
@@ -20,7 +20,7 @@ Each service is maintained and installed separately:
 - `pure-tcl-aws-ses`
 
 Each depends only on this core package. The core declares Tcl >=9.1,<10,
-`trequests` >=1.3,<2, `tjson` >=1.0.27,<2, `tdom` >=0.9.6,<0.10 and Tcllib >=2,<3.
+`trequests` >=1.3,<2, `tjson` >=1.0.27,<2, `tdom` >=0.9.6,<0.10 and `thashlib` >=0.1,<1.
 Tcl 8.6 is deliberately unsupported by the AWS packages.
 
 ## Client configuration
@@ -48,7 +48,8 @@ releases its HTTP session. `create config ?varname?` can bind a client's lifetim
 to a variable; unsetting that variable releases the client. Do not load a native
 `aws-sdk-tcl` implementation and its pure Tcl replacement in the same interpreter.
 Service compatibility packages advertise `awsSERVICE` version 1.0.19; the new
-package names use their own 0.1.0 version.
+service packages use version 0.1.1 and require core 1.0.0.
+Core 1.0.0 removes the Tcllib dependency; older service releases remain on core 0.x.
 
 ## Credentials
 
@@ -75,7 +76,7 @@ background credential thread.
 
 libcurl supplies request signing. S3 paths are preserved when parsing the URL,
 and content decoding is disabled so stored object bytes remain unchanged.
-Presigned URLs use Tcllib SHA-256/HMAC and match AWS's published test vector.
+Presigned URLs use thashlib SHA-256/HMAC and match AWS's published test vector.
 Commercial, China and GovCloud endpoints are supported. Other partitions need
 an explicit endpoint. SigV4a and automatic redirects are not implemented.
 

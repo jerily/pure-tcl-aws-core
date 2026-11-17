@@ -7,11 +7,15 @@
 package require tcltest 2
 namespace import ::tcltest::test
 lappend ::auto_path [file dirname [file dirname [file normalize [info script]]]]
-package require pure-tcl-aws-core 0.1.0
+package require pure-tcl-aws-core 1.0.0
 set endpoint [lindex $argv 0]
 set argv {}
 set config [dict create region us-east-1 endpoint $endpoint aws_access_key_id test aws_secret_access_key test aws_session_token temporary-token retry_base_ms 0]
 set c [::aws::core::Client new ssm $config]
+
+test hashing-dependencies {Core loads thashlib without loading Tcllib hashes} -body {
+    list [package present thashlib] [package provide sha256] [package provide md5]
+} -result {0.1.0 {} {}}
 
 test signature-vector {S3 presigning matches AWS's published example} -body {
     set credentials {aws_access_key_id AKIAIOSFODNN7EXAMPLE aws_secret_access_key wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY}
