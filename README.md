@@ -112,3 +112,12 @@ container credentials, IMDSv2, retries and non-BMP Unicode. They do not contact 
 Protocol references: [AWS SigV4](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv-create-signed-request.html),
 [S3 presigning test vector](https://docs.aws.amazon.com/AmazonS3/latest/userguide/sigv4-query-string-auth.html),
 and [libcurl signing](https://curl.se/libcurl/c/CURLOPT_AWS_SIGV4.html).
+
+## Install with ttrek
+
+If you do not have the ttrek client, get it from [ttrek.sh](https://ttrek.sh).
+Then install the package:
+
+```sh
+ttrek install pure-tcl-aws-core
+```
