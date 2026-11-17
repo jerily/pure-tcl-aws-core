@@ -48,8 +48,8 @@ releases its HTTP session. `create config ?varname?` can bind a client's lifetim
 to a variable; unsetting that variable releases the client. Do not load a native
 `aws-sdk-tcl` implementation and its pure Tcl replacement in the same interpreter.
 Service compatibility packages advertise `awsSERVICE` version 1.0.19; the new
-service packages use version 0.1.1 and require core 1.0.0.
-Core 1.0.0 removes the Tcllib dependency; older service releases remain on core 0.x.
+service packages use version 1.0.0 and require core 1.0.0.
+Core 1.0.0 removes the Tcllib dependency; the original 0.1.0 service releases remain on core 0.x.
 
 ## Credentials
 
