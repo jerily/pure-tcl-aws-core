@@ -11,7 +11,7 @@ package require tdom 0.9
 package require thashlib 0.1.0
 
 namespace eval ::aws::core {
-    variable version 1.0.0
+    variable version 1.0.1
     variable labels {s3 S3 sqs SQS dynamodb DynamoDB lambda Lambda iam IAM ssm SSM kms KMS ses SES sts STS}
 }
 # Return a dictionary value or a caller-supplied default.
@@ -153,7 +153,11 @@ oo::class create ::aws::core::Client {
         set files [::aws::core::profile $cfg $profile]
         set region [::aws::core::get $cfg region [::aws::core::env AWS_REGION [::aws::core::env AWS_DEFAULT_REGION [::aws::core::get $files region us-east-1]]]]
         set config [dict merge [dict create region $region profile $profile timeout 30000 timeout_connect 3000 max_attempts 3 retry_base_ms 100 force_path_style 0] $cfg]
-        dict set config custom_endpoint [dict exists $cfg endpoint]
+        if {![dict exists $config endpoint]} {
+            set override [::aws::core::env AWS_ENDPOINT_URL_[string toupper $s] {}]
+            if {$override ne {}} {dict set config endpoint $override}
+        }
+        dict set config custom_endpoint [dict exists $config endpoint]
         foreach {key min max} {timeout 1 2147483647 timeout_connect 1 2147483647 max_attempts 1 10 retry_base_ms 0 60000} {::aws::core::integer [dict get $config $key] $min $max $key}
         dict set config force_path_style [::aws::core::boolean [dict get $config force_path_style]]
         if {![dict exists $config endpoint]} {dict set config endpoint [::aws::core::endpoint $s $region]}
@@ -275,4 +279,4 @@ proc ::aws::core::next {seenVar token} {
 }
 source [file join [file dirname [info script]] credentials.tcl]
 source [file join [file dirname [info script]] signing.tcl]
-package provide pure-tcl-aws-core 1.0.0
+package provide pure-tcl-aws-core 1.0.1

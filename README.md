@@ -30,7 +30,7 @@ Service clients share this configuration dictionary:
 | Key | Default / behavior |
 | --- | --- |
 | `region` | `AWS_REGION`, then `AWS_DEFAULT_REGION`, profile region, then `us-east-1` |
-| `endpoint` | Regional service endpoint; override for local fixtures or compatible services |
+| `endpoint` | Explicit client endpoint, otherwise the service-specific `AWS_ENDPOINT_URL_<SERVICE>` environment variable, then the regional AWS endpoint |
 | `aws_access_key_id`, `aws_secret_access_key` | Explicit credentials; supply both |
 | `aws_session_token` | Session token for explicit temporary credentials |
 | `profile` | `AWS_PROFILE`, then `default` |

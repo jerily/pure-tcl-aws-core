@@ -5,4 +5,4 @@
 # 
 
 if {![package vsatisfies [package provide Tcl] 9.1-10]} {return}
-package ifneeded pure-tcl-aws-core 1.0.0 [list source [file join $dir library core.tcl]]
+package ifneeded pure-tcl-aws-core 1.0.1 [list source [file join $dir library core.tcl]]
